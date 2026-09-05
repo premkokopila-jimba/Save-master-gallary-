@@ -1,0 +1,6 @@
+{
+  "name": "Video Downloader",
+  "description": "High-performance video downloader with pause and resume, concurrent queue, URL analyzer, background engine, and MediaStore integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,27 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Center 66dp safe zone (21 to 87) -->
+    <!-- Video Player / Shield Container -->
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M32,30 C32,27.79 33.79,26 36,26 L72,26 C74.21,26 76,27.79 76,30 L76,68 C76,70.21 74.21,72 72,72 L36,72 C33.79,72 32,70.21 32,68 Z" />
+    <!-- Inner Dark Display Area -->
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M35,32 C35,30.9 35.9,30 37,30 L71,30 C72.1,30 73,30.9 73,32 L73,66 C73,67.1 72.1,68 71,68 L37,68 C35.9,68 35,67.1 35,66 Z" />
+    <!-- Prominent Download Arrow with Play accent -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,34 C55.66,34 57,35.34 57,37 L57,48 L63,48 C64.78,48 65.67,50.15 64.41,51.41 L55.41,60.41 C54.63,61.19 53.37,61.19 52.59,60.41 L43.59,51.41 C42.33,50.15 43.22,48 45,48 L51,48 L51,37 C51,35.34 52.34,34 54,34 Z" />
+    <!-- Download Base / Tray -->
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M40,64 L68,64 C69.1,64 70,64.9 70,66 C70,67.1 69.1,68 68,68 L40,68 C38.9,68 38,67.1 38,66 C38,64.9 38.9,64 40,64 Z" />
+    <!-- Small Play Symbol on Upper Corner -->
+    <path
+        android:fillColor="#0284C7"
+        android:pathData="M70,76 L38,76 C36.34,76 35,77.34 35,79 C35,80.66 36.34,82 38,82 L70,82 C71.66,82 73,80.66 73,79 C73,77.34 71.66,76 70,76 Z" />
+</vector>
