@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
+import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -110,8 +111,8 @@ class StorageManager(private val context: Context) {
             tempFile.delete()
         }
 
-        // Register with MediaStore so standard gallery and file apps can find it
-        registerInMediaStore(destination, mimeType)
+        // Save video to public phone gallery (Movies/VideoDownloader) so it appears in Photos, Gallery, and File Manager
+        saveVideoToPublicGallery(destination, mimeType)
 
         // Generate thumbnail
         val thumbnailPath = extractVideoThumbnail(destination, downloadId)
@@ -119,23 +120,130 @@ class StorageManager(private val context: Context) {
         return Pair(destination, thumbnailPath)
     }
 
-    private fun registerInMediaStore(file: File, mimeType: String) {
+    /**
+     * Saves the completed video file into the user's phone storage (MediaStore & public Movies/VideoDownloader)
+     * so that it immediately appears in the phone's Gallery, Google Photos, and standard video players.
+     */
+    fun saveVideoToPublicGallery(file: File, mimeType: String): Uri? {
+        val safeMime = if (mimeType.isNotBlank() && mimeType.startsWith("video/")) mimeType else "video/mp4"
+        val filename = file.name
+
+        // 1. On Android 10+ (Q+), insert and stream bytes to MediaStore in Movies/VideoDownloader
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                val resolver = context.contentResolver
+                val values = ContentValues().apply {
+                    put(MediaStore.Video.Media.TITLE, file.nameWithoutExtension)
+                    put(MediaStore.Video.Media.DISPLAY_NAME, filename)
+                    put(MediaStore.Video.Media.MIME_TYPE, safeMime)
+                    put(MediaStore.Video.Media.SIZE, file.length())
+                    put(MediaStore.Video.Media.DATE_ADDED, System.currentTimeMillis() / 1000)
+                    put(MediaStore.Video.Media.DATE_MODIFIED, System.currentTimeMillis() / 1000)
+                    put(MediaStore.Video.Media.RELATIVE_PATH, "${Environment.DIRECTORY_MOVIES}/VideoDownloader")
+                    put(MediaStore.Video.Media.IS_PENDING, 1)
+                }
+
+                val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+                if (uri != null) {
+                    resolver.openOutputStream(uri)?.use { output ->
+                        file.inputStream().use { input ->
+                            input.copyTo(output)
+                        }
+                    }
+                    values.clear()
+                    values.put(MediaStore.Video.Media.IS_PENDING, 0)
+                    resolver.update(uri, values, null, null)
+
+                    // Also scan to ensure instant indexing
+                    try {
+                        MediaScannerConnection.scanFile(
+                            context,
+                            arrayOf(file.absolutePath),
+                            arrayOf(safeMime),
+                            null
+                        )
+                    } catch (_: Exception) {}
+
+                    return uri
+                }
+            } catch (_: Exception) {
+                // If scoped storage insert fails, fallback to direct public directory copy
+            }
+        }
+
+        // 2. Direct public storage fallback (Android 9 and below, or when MediaStore is unavailable)
         try {
-            val values = ContentValues().apply {
-                put(MediaStore.Video.Media.TITLE, file.nameWithoutExtension)
-                put(MediaStore.Video.Media.DISPLAY_NAME, file.name)
-                put(MediaStore.Video.Media.MIME_TYPE, mimeType)
-                put(MediaStore.Video.Media.SIZE, file.length())
-                put(MediaStore.Video.Media.DATE_ADDED, System.currentTimeMillis() / 1000)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/VideoDownloader")
-                    put(MediaStore.Video.Media.IS_PENDING, 0)
+            val publicMovies = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
+            val folder = File(publicMovies, "VideoDownloader").apply { mkdirs() }
+            val publicFile = File(folder, filename)
+            if (!publicFile.exists() || publicFile.length() != file.length()) {
+                file.inputStream().use { input ->
+                    publicFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
                 }
             }
-            context.contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+
+            MediaScannerConnection.scanFile(
+                context,
+                arrayOf(publicFile.absolutePath, file.absolutePath),
+                arrayOf(safeMime, safeMime),
+                null
+            )
+            return Uri.fromFile(publicFile)
         } catch (_: Exception) {
-            // Graceful fallback if MediaStore insertion fails on some OEM devices
         }
+        return null
+    }
+
+    /**
+     * Exports an additional copy directly to the user's Downloads folder if requested.
+     */
+    fun exportVideoToPublicDownloads(file: File, mimeType: String): Uri? {
+        val safeMime = if (mimeType.isNotBlank() && mimeType.startsWith("video/")) mimeType else "video/mp4"
+        val filename = file.name
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                val resolver = context.contentResolver
+                val values = ContentValues().apply {
+                    put(MediaStore.Downloads.TITLE, file.nameWithoutExtension)
+                    put(MediaStore.Downloads.DISPLAY_NAME, filename)
+                    put(MediaStore.Downloads.MIME_TYPE, safeMime)
+                    put(MediaStore.Downloads.SIZE, file.length())
+                    put(MediaStore.Downloads.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/VideoDownloader")
+                    put(MediaStore.Downloads.IS_PENDING, 1)
+                }
+                val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                if (uri != null) {
+                    resolver.openOutputStream(uri)?.use { out ->
+                        file.inputStream().use { inStream ->
+                            inStream.copyTo(out)
+                        }
+                    }
+                    values.clear()
+                    values.put(MediaStore.Downloads.IS_PENDING, 0)
+                    resolver.update(uri, values, null, null)
+                    return uri
+                }
+            } catch (_: Exception) {
+            }
+        }
+
+        try {
+            val publicDownloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val folder = File(publicDownloads, "VideoDownloader").apply { mkdirs() }
+            val publicFile = File(folder, filename)
+            file.inputStream().use { input ->
+                publicFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            MediaScannerConnection.scanFile(context, arrayOf(publicFile.absolutePath), arrayOf(safeMime), null)
+            return Uri.fromFile(publicFile)
+        } catch (_: Exception) {
+        }
+        return null
     }
 
     fun extractVideoThumbnail(videoFile: File, downloadId: String): String? {

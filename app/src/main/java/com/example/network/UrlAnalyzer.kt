@@ -37,7 +37,19 @@ object UrlAnalyzer {
         }
         val targetUrl = (validation as UrlValidator.ValidationResult.Valid).normalizedUrl
 
-        // Try HEAD first
+        // If it's a known social platform (TikTok, Instagram, Facebook, YouTube, etc.), use the extractor immediately
+        val platform = SocialVideoExtractor.detectPlatform(targetUrl)
+        if (platform != SocialVideoExtractor.Platform.GENERIC) {
+            try {
+                return@withContext SocialVideoExtractor.extract(targetUrl)
+            } catch (e: VideoDownloadException) {
+                throw e
+            } catch (e: Exception) {
+                throw VideoDownloadException("Failed to extract video from $platform: ${e.localizedMessage}", e)
+            }
+        }
+
+        // Try HEAD first for direct video probes
         var response: Response? = null
         var finalUrl = targetUrl
         try {
@@ -50,7 +62,6 @@ object UrlAnalyzer {
             val headResponse = httpClient.newCall(headRequest).execute()
             if (headResponse.isSuccessful || headResponse.code == 405 || headResponse.code == 403 || headResponse.code == 302 || headResponse.code == 301) {
                 if (headResponse.code == 405 || headResponse.header("Content-Type") == null) {
-                    // Method not allowed or incomplete headers, fallback to GET range 0-0
                     headResponse.close()
                     response = executeProbeGet(targetUrl)
                 } else {
@@ -61,7 +72,6 @@ object UrlAnalyzer {
                 response = executeProbeGet(targetUrl)
             }
         } catch (e: Exception) {
-            // HEAD might fail on some servers, try GET probe
             try {
                 response = executeProbeGet(targetUrl)
             } catch (probeEx: Exception) {
@@ -85,6 +95,11 @@ object UrlAnalyzer {
             val contentRange = r.header("Content-Range")
             val contentLengthHeader = r.header("Content-Length")
 
+            // If the server returned an HTML webpage, attempt to search and extract embedded video
+            if (contentType.contains("text/html") || contentType.contains("application/xhtml")) {
+                return@withContext SocialVideoExtractor.extract(finalUrl)
+            }
+
             var contentLength: Long = -1
             if (contentLengthHeader != null) {
                 try {
@@ -94,19 +109,11 @@ object UrlAnalyzer {
             }
 
             if (contentRange != null && contentLength <= 0) {
-                // Example: bytes 0-0/1048576
                 val totalStr = contentRange.substringAfterLast("/")
                 try {
                     contentLength = totalStr.toLong()
                 } catch (_: NumberFormatException) {
                 }
-            }
-
-            // Check if this is an HTML webpage
-            if (contentType.contains("text/html") || contentType.contains("application/xhtml")) {
-                throw VideoDownloadException(
-                    "This URL points to an HTML webpage rather than a direct downloadable video. Please provide a direct video link (.mp4, .webm)."
-                )
             }
 
             val filename = FilenameSanitizer.extractAndSanitize(
@@ -149,6 +156,7 @@ object UrlAnalyzer {
                 )
             )
 
+            val baseName = filename.substringBeforeLast(".")
             return@withContext VideoInfo(
                 originalUrl = targetUrl,
                 finalUrl = finalUrl,
@@ -157,7 +165,11 @@ object UrlAnalyzer {
                 contentType = contentType,
                 supportsRange = supportsRange,
                 qualityOptions = qualityOptions,
-                isDirectVideo = true
+                isDirectVideo = true,
+                title = baseName.replace('_', ' '),
+                author = null,
+                thumbnailUrl = null,
+                platformName = "Direct Download"
             )
         }
     }

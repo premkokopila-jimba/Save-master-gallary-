@@ -171,7 +171,7 @@ fun UrlInputSection(
                 .testTag("url_input_field"),
             placeholder = {
                 Text(
-                    text = "Paste video URL here (e.g. https://.../video.mp4)",
+                    text = "Paste link (Facebook, TikTok, Instagram, YouTube...)",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
@@ -272,8 +272,21 @@ fun UrlInputSection(
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Download Video", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                Text("Search & Download", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
             }
+        }
+
+        // Platform Support indicators
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Supports TikTok • Instagram • Facebook • YouTube • MP4",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+            )
         }
     }
 }

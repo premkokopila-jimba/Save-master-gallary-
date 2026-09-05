@@ -267,12 +267,26 @@ fun DownloadItemCard(
                 when (download.status) {
                     DownloadStatus.COMPLETED -> {
                         val fileSizeStr = formatBytes(download.totalBytes)
-                        Text(
-                            text = fileSizeStr,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.weight(1f)
-                        )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = EmeraldGreen,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Saved on Phone • $fileSizeStr",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = EmeraldGreen,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
 
                         FilledTonalButton(
                             onClick = onOpen,

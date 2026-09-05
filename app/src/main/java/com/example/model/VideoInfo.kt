@@ -16,7 +16,11 @@ data class VideoInfo(
     val contentType: String,
     val supportsRange: Boolean,
     val qualityOptions: List<VideoQualityOption> = emptyList(),
-    val isDirectVideo: Boolean = true
+    val isDirectVideo: Boolean = true,
+    val title: String? = null,
+    val author: String? = null,
+    val thumbnailUrl: String? = null,
+    val platformName: String? = null
 )
 
 data class DownloadProgress(

@@ -141,6 +141,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return storageManager.shareVideo(file)
     }
 
+    fun exportVideoToPublicStorage(localFilePath: String, mimeType: String): Boolean {
+        if (localFilePath.isBlank()) return false
+        val file = File(localFilePath)
+        if (!file.exists()) return false
+        val uri = storageManager.saveVideoToPublicGallery(file, mimeType)
+            ?: storageManager.exportVideoToPublicDownloads(file, mimeType)
+        return uri != null
+    }
+
     fun updateMaxConcurrentDownloads(limit: Int) {
         preferencesManager.setMaxConcurrentDownloads(limit)
         downloadEngine.processQueue()
